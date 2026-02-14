@@ -2,24 +2,26 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerador de CPF</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
         }
-        #cpf {
-            font-size: 24px;
-            margin: 20px 0;
+        #cpfs {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
             padding: 10px;
-            border: 1px solid #ccc;
+            text-align: left;
+            font-family: monospace;
         }
         button {
             padding: 10px 20px;
+            margin: 10px;
             background-color: #007bff;
             color: white;
             border: none;
@@ -29,33 +31,81 @@
 </head>
 <body>
     <h1>Gerador de CPF</h1>
-    <div id="cpf">000.000.000-00</div>
-    <button onclick="gerarCPF()">Gerar CPF</button>
+    <button id="gerarBtn">Gerar CPFs</button>
+    <div id="cpfs"></div>
 
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script>
-        function gerarCPF() {
-            const cpf = Array(11).fill(0).map(() => Math.floor(Math.random() * 10));
-            cpf[9] = calcularDigitoVerificador(cpf.slice(0, 9));
-            cpf[10] = calcularDigitoVerificador(cpf.slice(0, 10));
+        async function main() {
+            let pyodide = await loadPyodide();
             
-            const cpfFormatado = formatarCPF(cpf);
-            document.getElementById('cpf').textContent = cpfFormatado;
-        }
+            await pyodide.loadPackage("micropip");
+            const micropip = pyodide.pyimport("micropip");
+            
+            const gerarCPFScript = `
+# Gerador de CPF
+import random
+import sys
 
-        function calcularDigitoVerificador(digitos) {
-            const soma = digitos.reduce((acc, val, index) => {
-                return acc + val * (digitos.length + 1 - index);
-            }, 0);
-            const resto = soma % 11;
-            return resto < 2 ? 0 : 11 - resto;
-        }
+def gerar_cpfs():
+    cpfs = []
+    for _ in range(100):
+        nove_digitos = ''
+        for i in range(9):
+            nove_digitos += str(random.randint(0, 9))
 
-        function formatarCPF(cpf) {
-            return cpf.slice(0, 9).join('') + '-' + cpf.slice(9).join('');
-        }
+        contador_regressivo_1 = 10
 
-        // Gera um CPF inicial ao carregar a página
-        gerarCPF();
+        resultado_digito_1 = 0
+        for digito in nove_digitos:
+            resultado_digito_1 += int(digito) * contador_regressivo_1
+            contador_regressivo_1 -= 1
+        digito_1 = (resultado_digito_1 * 10) % 11
+        digito_1 = digito_1 if digito_1 <= 9 else 0
+
+        dez_digitos = nove_digitos + str(digito_1)
+        contador_regressivo_2 = 11
+
+        resultado_digito_2 = 0
+        for digito in dez_digitos:
+            resultado_digito_2 += int(digito) * contador_regressivo_2
+            contador_regressivo_2 -= 1
+        digito_2 = (resultado_digito_2 * 10) % 11
+        digito_2 = digito_2 if digito_2 <= 9 else 0
+
+        cpf_gerado_pelo_calculo = f'{nove_digitos}{digito_1}{digito_2}'
+        cpfs.append(cpf_gerado_pelo_calculo)
+    
+    return cpfs
+`;
+            
+            // Preparando o ambiente Python
+            pyodide.runPython(gerarCPFScript);
+            
+            // Configurando o botão
+            const gerarBtn = document.getElementById('gerarBtn');
+            const cpfsDiv = document.getElementById('cpfs');
+            
+            gerarBtn.addEventListener('click', () => {
+                cpfsDiv.innerHTML = ''; // Limpa CPFs anteriores
+                const cpfs = pyodide.runPython('gerar_cpfs()');
+                
+                cpfs.forEach(cpf => {
+                    const cpfElement = document.createElement('div');
+                    cpfElement.textContent = cpf;
+                    cpfsDiv.appendChild(cpfElement);
+                });
+            });
+            
+            // Gerar CPFs inicialmente
+            const cpfsIniciais = pyodide.runPython('gerar_cpfs()');
+            cpfsIniciais.forEach(cpf => {
+                const cpfElement = document.createElement('div');
+                cpfElement.textContent = cpf;
+                cpfsDiv.appendChild(cpfElement);
+            });
+        }
+        main();
     </script>
 </body>
 </html>
